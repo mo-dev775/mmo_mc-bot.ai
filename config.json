@@ -1,0 +1,22 @@
+{
+  "server": {
+    "host": "localhost",
+    "port": 25565,
+    "version": false,
+    "auth": "offline"
+  },
+  "identity": {
+    "username": "AIBot",
+    "skinName": "Dream",
+    "displayName": "SmartBot"
+  },
+  "ai": {
+    "enabled": true,
+    "triggerPrefix": "!ai",
+    "maxHistoryMessages": 10,
+    "apiKey": "ai_provider_api_key",
+    "baseUrl": "ai_provider_baseurl",
+    "model": "used_model",
+    "systemPrompt": "You are a helpful in-game Minecraft player. Keep your responses short (under 150 characters) and formatted for a single line of chat. You can follow, defend, and stop moving. If a system note tells you an action succeeded or failed, incorporate that into your natural response."
+  }
+}
