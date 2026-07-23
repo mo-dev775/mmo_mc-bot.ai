@@ -4,6 +4,7 @@ const pvp = require('mineflayer-pvp').plugin;
 const { OpenAI } = require('openai');
 const config = require('./config.json');
 
+// Initialize OpenAI client
 let openai = null;
 if (config.ai && config.ai.enabled) {
     openai = new OpenAI({
@@ -56,6 +57,7 @@ function createBot() {
         }
     });
 
+    // Chat Handler Engine
     bot.on('chat', async (username, message) => {
         if (username === bot.username) return;
 
@@ -63,6 +65,7 @@ function createBot() {
         const botNameLower = config.identity.username.toLowerCase();
         const displayLower = config.identity.displayName ? config.identity.displayName.toLowerCase() : "";
 
+        // 1. Determine if AI should be triggered
         const isMentioned = lowerMsg.includes(botNameLower) || (displayLower && lowerMsg.includes(displayLower));
         const isCommand = lowerMsg.includes('!follow') || lowerMsg.includes('!defend') || lowerMsg.includes('!stop');
         const isPrefixed = message.startsWith(config.ai.triggerPrefix);
@@ -70,8 +73,9 @@ function createBot() {
         const shouldTriggerAi = config.ai.enabled && (isMentioned || isCommand || isPrefixed);
 
         const playerEntity = bot.players[username]?.entity;
-        let actionTaken = '';
+        let actionTaken = ''; // System note to pass to the AI
 
+        // 2. Execute Commands Silently
         if (lowerMsg.includes('!follow')) {
             if (!playerEntity) {
                 actionTaken = `(System Note: You could not follow ${username} because they are out of render distance.)`;
@@ -110,12 +114,21 @@ function createBot() {
             actionTaken = `(System Note: You stopped all previous tasks and are now standing by.)`;
         }
 
+        // 3. Process AI Generation
         if (shouldTriggerAi) {
+            // Strip the prefix if they used it, otherwise send the full message
             let userPrompt = message;
             if (isPrefixed) {
                 userPrompt = message.slice(config.ai.triggerPrefix.length).trim();
             }
 
+            // Prevent completely empty prompts from crashing the AI
+            if (!userPrompt || userPrompt.trim() === "") {
+                console.log(`[*] Skipped empty prompt from ${username}`);
+                return; 
+            }
+
+            // Merge the user's chat with the backend result so the AI knows what happened
             let aiContextMsg = `${username}: ${userPrompt}`;
             if (actionTaken) {
                 aiContextMsg += ` ${actionTaken}`;
@@ -136,14 +149,21 @@ function createBot() {
                     max_tokens: 120
                 });
 
-                const reply = response.choices[0]?.message?.content?.trim();
+                // Safe Array Parsing: The '?.' prevents the bot from crashing if 'choices' is missing
+                const reply = response?.choices?.[0]?.message?.content?.trim();
+                
                 if (reply) {
                     const cleanReply = reply.replace(/[\r\n]+/g, ' ');
                     
+                    // Save to memory
                     pushToHistory('user', `${username}: ${userPrompt}`);
                     pushToHistory('assistant', cleanReply);
                     
                     bot.chat(cleanReply);
+                } else {
+                    // Debugging: Print exactly what the provider returned instead of crashing
+                    console.error(`[-] API returned an unexpected format:`, JSON.stringify(response, null, 2));
+                    bot.chat(`My brain received scrambled data!`);
                 }
             } catch (err) {
                 console.error(`[-] AI Request failed: ${err.message}`);
